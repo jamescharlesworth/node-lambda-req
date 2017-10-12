@@ -73,7 +73,6 @@ class LambdaReq {
     this._event = event
     this._context = context
     this._callback = callback
-    console.log(this.headers)
     const busboy = new Busboy({ headers: this.headers })
     this._busboy = busboy
     console.assert(typeof event === 'object' && event !== null, 'Malformed Lambda event object.')
