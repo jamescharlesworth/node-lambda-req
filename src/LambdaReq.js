@@ -1,5 +1,6 @@
 import debug from 'debug'
 import LambdaReqError from './LambdaReqError'
+import Busboy from 'busboy'
 
 const log = debug('LambdaReq:')
 
@@ -72,7 +73,9 @@ class LambdaReq {
     this._event = event
     this._context = context
     this._callback = callback
-
+    console.log(this.headers)
+    const busboy = new Busboy({ headers: this.headers })
+    this._busboy = busboy
     console.assert(typeof event === 'object' && event !== null, 'Malformed Lambda event object.')
     console.assert(typeof callback === 'function', 'Malformed Lambda callback.')
     
@@ -93,7 +96,10 @@ class LambdaReq {
 
     const reqData = {
       params: Object.assign({}, this.params),
-      headers: this.headers ? Object.assign({}, this.headers) : undefined
+      headers: this.headers ? Object.assign({}, this.headers) : undefined,
+      on: function(key, callback) {
+        busboy.on(key, callback)
+      }
     }
 
     let result
@@ -103,8 +109,8 @@ class LambdaReq {
       log('handler %s responded with error: %s', this.currentRoute, err)
       return this._respond(err)
     }
-    
     if (result && result.then) {
+      this._busboy.end(this._event.body)
       log('handling an async result for %s', this.currentRoute)
       return result.then((res)=> this._respond(null, res)).catch((err)=> this._respond(err))
     } else {
@@ -126,9 +132,33 @@ class LambdaReq {
     this._routes[id] = handler
   }
 
-  _parseApiGatewayData (event = this._event) {
+  _parseApiGatewayBody(contentType = 'application/json', event) {
     const body = {}
-    Object.assign(body, JSON.parse(event.body))
+    if (contentType.toLowerCase() === 'application/json') {
+        Object.assign(body, JSON.parse(event.body));
+    } else if (contentType.toLowerCase() === 'application/x-www-form-urlencoded') {
+        const pieces = {};
+        event.body.split('&').forEach(part => {
+          const keyValue = part.split('=');
+          pieces[keyValue[0]] = keyValue[1];
+        });
+        Object.assign(body, pieces);
+    // multipart is server on the busboy event
+    } else if (!/multipart/.test(contentType)) {
+        try {
+          Object.assign(body, JSON.parse(event.body));
+        } catch(e) {
+        }
+    }
+
+    return body;
+  }
+
+  _parseApiGatewayData (event = this._event) {
+    const body = this._parseApiGatewayBody(
+      event.headers['content-type'] || event.headers['Content-Type'],
+      event
+    );
 
     return {
       method: event.httpMethod,
