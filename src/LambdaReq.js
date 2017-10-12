@@ -134,30 +134,31 @@ class LambdaReq {
   _parseApiGatewayBody(contentType = 'application/json', event) {
     const body = {}
     if (contentType.toLowerCase() === 'application/json') {
-        Object.assign(body, JSON.parse(event.body));
+        Object.assign(body, JSON.parse(event.body))
     } else if (contentType.toLowerCase() === 'application/x-www-form-urlencoded') {
-        const pieces = {};
+        const pieces = {}
         event.body.split('&').forEach(part => {
-          const keyValue = part.split('=');
-          pieces[keyValue[0]] = keyValue[1];
-        });
-        Object.assign(body, pieces);
+          const keyValue = part.split('=')
+          pieces[keyValue[0]] = keyValue[1]
+        })
+        Object.assign(body, pieces)
     // multipart is server on the busboy event
     } else if (!/multipart/.test(contentType)) {
         try {
-          Object.assign(body, JSON.parse(event.body));
+          Object.assign(body, JSON.parse(event.body))
         } catch(e) {
+          //
         }
     }
 
-    return body;
+    return body
   }
 
   _parseApiGatewayData (event = this._event) {
     const body = this._parseApiGatewayBody(
       event.headers['content-type'] || event.headers['Content-Type'],
       event
-    );
+    )
 
     return {
       method: event.httpMethod,
