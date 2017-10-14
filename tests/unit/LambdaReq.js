@@ -36,12 +36,32 @@ describe('LambdaReq', () => {
         const lambda = new LambdaReq(API_GATEWAY_EVENT, {}, callback)
         lambda.get('/v1/test', handler)
         lambda.invoke()
-        should(handler.calledWith(
+        should(handler.calledWith(sinon.match(
           { params: { name: 'john', id: 'u-123', active: true },
             headers: { 'Content-Type': 'application/json' }
-          },
+          }),
           lambda
         )).eql(true)
+        should(callback.getCall(0).args[1]).containEql({
+          statusCode: 200,
+          body: '{"success":true}'
+        })
+      })
+
+      it('responds to x-www-form-urlencoded', () => {
+        const callback = sinon.stub()
+        const handler = sinon.stub().returns({ success: true })
+        const event =  Object.assign({}, API_GATEWAY_EVENT, {
+           headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+           },
+          body: 'active=true'
+        })
+
+        const lambda = new LambdaReq(event, {}, callback)
+        lambda.get('/v1/test', handler)
+        lambda.invoke()
+        
         should(callback.getCall(0).args[1]).containEql({
           statusCode: 200,
           body: '{"success":true}'
@@ -56,10 +76,10 @@ describe('LambdaReq', () => {
           lambda.get('/v1/test', handler)
           return lambda.invoke()
           .then(()=> {
-            should(handler.calledWith(
+            should(handler.calledWith(sinon.match(
               { params: { name: 'john', id: 'u-123', active: true },
                 headers: { 'Content-Type': 'application/json' }
-              },
+              }),
               lambda
             )).eql(true)
             should(callback.getCall(0).args[1]).containEql({
@@ -175,8 +195,8 @@ describe('LambdaReq', () => {
         const lambda = new LambdaReq(PROXY_EVENT, {}, callback)
         lambda.proxy('commandName', handler)
         lambda.invoke()
-        should(handler.calledWith(
-          { params: { id: 'u-123' }, headers: undefined },
+        should(handler.calledWith(sinon.match(
+          { params: { id: 'u-123' }, headers: undefined }),
           lambda
         )).eql(true)
         should(callback.getCall(0).args[1]).containEql('{"success":true}')

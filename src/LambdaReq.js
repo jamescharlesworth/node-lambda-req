@@ -73,10 +73,21 @@ class LambdaReq {
     this._event = event
     this._context = context
     this._callback = callback
-    const busboy = new Busboy({ headers: this.headers })
-    this._busboy = busboy
+ 
+    let busboy
+
     console.assert(typeof event === 'object' && event !== null, 'Malformed Lambda event object.')
     console.assert(typeof callback === 'function', 'Malformed Lambda callback.')
+
+
+    if (this.headers && this.headers['Content-Type']) {
+      if (/^multipart/.test(this.headers['Content-Type'])) {
+        busboy = new Busboy({ headers: this.headers })
+        this._busboy = busboy
+      }
+    }
+
+
     
     log('handling invocation for route %s', this.currentRoute)
 
@@ -96,10 +107,13 @@ class LambdaReq {
     const reqData = {
       params: Object.assign({}, this.params),
       headers: this.headers ? Object.assign({}, this.headers) : undefined,
-      on: function(key, callback) {
-        busboy.on(key, callback)
+      on: (key, callback) => {
+        if (busboy) {
+          busboy.on(key, callback)
+        }
       }
     }
+
 
     let result
     try {
@@ -109,7 +123,9 @@ class LambdaReq {
       return this._respond(err)
     }
     if (result && result.then) {
-      this._busboy.end(this._event.body)
+      if (this._busboy) {
+        this._busboy.end(this._event.body)
+      }
       log('handling an async result for %s', this.currentRoute)
       return result.then((res)=> this._respond(null, res)).catch((err)=> this._respond(err))
     } else {
@@ -131,10 +147,12 @@ class LambdaReq {
     this._routes[id] = handler
   }
 
-  _parseApiGatewayBody(contentType = 'application/json', event) {
+  _parseApiGatewayBody(event) {
     const body = {}
+    const headers = event.headers || {}
+    const contentType = headers['content-type'] || headers['Content-Type'] || 'application/json'
     if (contentType.toLowerCase() === 'application/json') {
-        Object.assign(body, JSON.parse(event.body))
+        Object.assign(body, JSON.parse(event.body || '{}'))
     } else if (contentType.toLowerCase() === 'application/x-www-form-urlencoded') {
         const pieces = {}
         event.body.split('&').forEach(part => {
@@ -155,10 +173,8 @@ class LambdaReq {
   }
 
   _parseApiGatewayData (event = this._event) {
-    const body = this._parseApiGatewayBody(
-      event.headers['content-type'] || event.headers['Content-Type'],
-      event
-    )
+    const headers = event.headers || {}
+    const body = this._parseApiGatewayBody(event)
 
     return {
       method: event.httpMethod,
