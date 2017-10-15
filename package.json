@@ -51,7 +51,6 @@
     "sinon": "^2.0.0"
   },
   "dependencies": {
-    "busboy": "^0.2.14",
     "debug": "^2.6.3"
   },
   "nyc": {

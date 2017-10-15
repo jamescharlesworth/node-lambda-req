@@ -79,15 +79,6 @@ class LambdaReq {
     console.assert(typeof event === 'object' && event !== null, 'Malformed Lambda event object.')
     console.assert(typeof callback === 'function', 'Malformed Lambda callback.')
 
-
-    if (this.headers && this.headers['Content-Type']) {
-      if (/^multipart/.test(this.headers['Content-Type'])) {
-        busboy = new Busboy({ headers: this.headers })
-        this._busboy = busboy
-      }
-    }
-
-
     
     log('handling invocation for route %s', this.currentRoute)
 
@@ -107,13 +98,8 @@ class LambdaReq {
     const reqData = {
       params: Object.assign({}, this.params),
       headers: this.headers ? Object.assign({}, this.headers) : undefined,
-      on: (key, callback) => {
-        if (busboy) {
-          busboy.on(key, callback)
-        }
-      }
+      body: this._event.body
     }
-
 
     let result
     try {
@@ -123,9 +109,6 @@ class LambdaReq {
       return this._respond(err)
     }
     if (result && result.then) {
-      if (this._busboy) {
-        this._busboy.end(this._event.body)
-      }
       log('handling an async result for %s', this.currentRoute)
       return result.then((res)=> this._respond(null, res)).catch((err)=> this._respond(err))
     } else {
