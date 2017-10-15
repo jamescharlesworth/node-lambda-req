@@ -1,7 +1,5 @@
 import debug from 'debug'
 import LambdaReqError from './LambdaReqError'
-import Busboy from 'busboy'
-
 const log = debug('LambdaReq:')
 
 class LambdaReq {
@@ -73,8 +71,6 @@ class LambdaReq {
     this._event = event
     this._context = context
     this._callback = callback
- 
-    let busboy
 
     console.assert(typeof event === 'object' && event !== null, 'Malformed Lambda event object.')
     console.assert(typeof callback === 'function', 'Malformed Lambda callback.')
@@ -143,7 +139,6 @@ class LambdaReq {
           pieces[keyValue[0]] = keyValue[1]
         })
         Object.assign(body, pieces)
-    // multipart is server on the busboy event
     } else if (!/multipart/.test(contentType)) {
         try {
           Object.assign(body, JSON.parse(event.body))
